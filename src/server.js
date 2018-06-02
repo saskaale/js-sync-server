@@ -2,8 +2,9 @@ import Connection from './connection';
 import uuidv1 from 'uuid/v1';
 const WebSocketServer = require('ws').Server;
 
+/*** Support for all requests ***/
 import ntp from './requests/ntp';
-import ntp from './requests/loadall';
+import loadall from './requests/loadall';
 
 const defaultConf = {
   port: 40510,
