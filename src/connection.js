@@ -1,25 +1,40 @@
 import {serialize, deserialize} from './utils/serializer';
 
+const requestFunName = (n) => "request_"+n;
 class Connection{
   constructor(uid, ws){
     this._uid = uid;
     this._ws = ws;
+
+    console.log("NEW CLIENT connection");
   }
   static registerRequest(type, handler){
-    if(Connection._requests[type])
-      throw new Error('Request '+type+' already exists');
-    Connection._requests[type] = handler;
+    type = requestFunName(type);
+    if(this.prototype[type])
+      throw new Error('Request ( function '+type+' ) already exists');
+    this.prototype[type] = handler;
   }
   _onMessage(msg){
-    msg = deserialize(msg);
+    this.onMessage(deserialize(msg));
+  }
+  _send(d){
+    console.log('send '+JSON.stringify(d));
+    this._ws.send(serialize(d));
+  }
+  onClose(){}
+  send(type, data){
+    this._send({t: type, d:data});
+  }
+  onMessage(msg){
     let response = {};
     if(msg.k)
       response.k = msg.k;
 
-    if(Connection._requests[msg.t]){
-      const reqRet = Connection._requests[msg.t](msg);
+    let t = requestFunName(msg.t);
+    if(this[t]){
+      const reqRet = this[t].call(this, msg);
       if(reqRet)
-        response = {...response, ...reqRet};
+        response.d = reqRet;
       else if(reqRet === false)
         response = undefined;
     }else{
@@ -27,12 +42,9 @@ class Connection{
     }
 
     if(response){
-      console.log('send '+JSON.stringify(response));
-      this._ws.send(serialize(response));
+      this._send(response);
     }
   }
 }
-
-Connection._requests = [];
 
 export default Connection;
