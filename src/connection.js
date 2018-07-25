@@ -26,6 +26,7 @@ class Connection{
     this._send({t: type, d:data});
   }
   onMessage(msg){
+    console.log('receive '+JSON.stringify(msg));
     let response = {};
     if(msg.k)
       response.k = msg.k;
