@@ -1,7 +1,7 @@
-import Connection from '../connection';
+import WSConnection from '../wsconnection';
 import {REQUEST_NTP} from '../constants';
 
-Connection.registerRequest(REQUEST_NTP, function(d){
+WSConnection.registerRequest(REQUEST_NTP, function(d){
     const clientTime = d.ct;
     const serverTimestamp = new Date().getTime();
     const serverClientRequestDiffTime = serverTimestamp - clientTime;

@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "test": "mocha --compilers babel-register --require babel-polyfill",
-    "start": "./node_modules/.bin/babel-node --presets=es2015,es2016,es2017 ./test.js"
+    "start": "./node_modules/.bin/babel-node --presets=es2015,es2016,es2017 --trace-warnings ./test.js"
   },
   "author": "Ales Saska",
   "license": "ISC",
@@ -26,7 +26,7 @@
     "babel": "^6.23.0",
     "babel-preset-env": "^1.7.0",
     "babel-preset-latest": "^6.24.1",
-    "uuid": "^3.2.1",
+    "uuid": "^3.3.2",
     "ws": "^5.2.0"
   }
 }

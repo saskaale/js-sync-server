@@ -1,4 +1,4 @@
-import Connection from './connection';
+import WSConnection from './wsconnection';
 import uuidv1 from 'uuid/v1';
 const WebSocketServer = require('ws').Server;
 
@@ -16,7 +16,7 @@ const defaultConf = {
     zlibInflateOptions: {
       chunkSize: 10 * 1024
     },
-    ClientConnection: Connection,
+    ClientConnection: WSConnection,
     // Other options settable:
     clientNoContextTakeover: true, // Defaults to negotiated value.
     serverNoContextTakeover: true, // Defaults to negotiated value.

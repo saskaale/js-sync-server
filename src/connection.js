@@ -1,51 +1,98 @@
-import {serialize, deserialize} from './utils/serializer';
+import Server from './server';
+import WSConnection from './wsconnection';
+import {REQUEST_LOADALL, REQUEST_LIST, REQUEST_SERVERCHANGE, REQUEST_CLIENTCHANGE} from './constants';
+import DataStruct, {merger} from '../../js-transaction-object';
 
-const requestFunName = (n) => "request_"+n;
-class Connection{
-  constructor(uid, ws){
-    this._uid = uid;
-    this._ws = ws;
+class ClientConnection extends WSConnection{
+    constructor(...args){
+        super(...args);
 
-    console.log("NEW CLIENT connection");
-  }
-  static registerRequest(type, handler){
-    type = requestFunName(type);
-    if(this.prototype[type])
-      throw new Error('Request ( function '+type+' ) already exists');
-    this.prototype[type] = handler;
-  }
-  _onMessage(msg){
-    this.onMessage(deserialize(msg));
-  }
-  _send(d){
-    console.log('send '+JSON.stringify(d));
-    this._ws.send(serialize(d));
-  }
-  onClose(){}
-  send(type, data){
-    this._send({t: type, d:data});
-  }
-  onMessage(msg){
-    console.log('receive '+JSON.stringify(msg));
-    let response = {};
-    if(msg.k)
-      response.k = msg.k;
+        this.status = [];
 
-    let t = requestFunName(msg.t);
-    if(this[t]){
-      const reqRet = this[t].call(this, msg);
-      if(reqRet)
-        response.d = reqRet;
-      else if(reqRet === false)
-        response = undefined;
-    }else{
-      response.err = "Unknown request >>"+msg.k+"<<";
+        this._configds = new DataStruct({
+          listensTo: {}
+        });
+        this.config = this._configds.data;
+
+        this.availableDataStructs = {
+          [null]: {
+                    ds  :   this._configds,
+                    readonly: true
+          }
+        };
+        this.listeningDs = {};
     }
+    onClose(...args){
+        super.onClose && super.onClose(...args);
 
-    if(response){
-      this._send(response);
+        for(let k in this.listeningDs)
+          this.unsubscribeFrom(k);
+        super.onClose();
     }
-  }
+    subscribeTo(k, silent = false){
+        console.log(`subscribe to the ds ${k}`);
+        if(this.listeningDs[k])
+          throw new Error(`You are already subscribed to the ds ${k}`);
+        if(!silent)
+          this.config.listensTo[k] = true;
+
+/*        this.request(REQUEST_SERVERCHANGE, {}, k).then(e=>{
+            console.log("REQUEST_SERVERCHANGE success");
+            console.log(e);
+        });
+*/
+
+        let subscribe, unsubscribe;
+        subscribe = (change) => {
+            console.log("---- SEND REQUEST_SERVERCHANGE");
+            this.request(REQUEST_SERVERCHANGE, {d:change}, k).then(e=>{
+                console.log("REQUEST_SERVERCHANGE success");
+                console.log(e);
+            });
+        };
+        unsubscribe = this.availableDataStructs[k].ds.subscribe(subscribe);
+
+        this.listeningDs[k] = {subscribe, unsubscribe};
+    }
+    _checkDS({s}){
+      if(!this.listeningDs[s])
+        throw new Error(`Datastruct >>${s}<< is not connected`)
+    }
+    unsubscribeFrom(k){
+        console.log(`unsubscribe from the ds ${k}`);
+        if(this.listeningDs[k]){
+            this.listeningDs[k].unsubscribe(k);
+            delete this.config.listensTo[k];
+            delete this.listeningDs[k];
+        }
+    }
 }
 
-export default Connection;
+ClientConnection.registerRequest(REQUEST_LIST, function(d){
+    return Object.keys(this.availableDataStructs);
+});
+
+ClientConnection.registerRequest(REQUEST_LOADALL, function(d){
+    if(!this.availableDataStructs[d.s])
+      throw new Error(`unknown datastruct >>${d.s}<<`);
+    this.subscribeTo(d.s);
+    return this.availableDataStructs[d.s].ds.toJS();
+});
+
+ClientConnection.registerRequest(REQUEST_CLIENTCHANGE, function(d){
+    this._checkDS(d);
+    let conf = this.availableDataStructs[d.s];
+    if(conf.readonly)
+        throw new Error('datastruct '+d.s+' is readonly');
+
+    const subscribe = this.listeningDs[d.s].subscribe;
+    const ret = merger(
+            conf.ds, 
+            d.d, 
+            {skipSubscribers: new Set([subscribe])
+    });
+    console.log(this.availableDataStructs[d.s].immutable.toJSON());
+    return ret;
+});
+
+export default ClientConnection;
