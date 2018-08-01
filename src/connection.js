@@ -1,7 +1,6 @@
-import Server from './server';
 import WSConnection from './wsconnection';
 import {REQUEST_LOADALL, REQUEST_LIST, REQUEST_SERVERCHANGE, REQUEST_CLIENTCHANGE} from './constants';
-import DataStruct, {merger} from '../../js-transaction-object';
+import DataStruct, {merger, MERGER_STRATEGIES} from '../../js-transaction-object';
 
 class ClientConnection extends WSConnection{
     constructor(...args){
@@ -89,8 +88,11 @@ ClientConnection.registerRequest(REQUEST_CLIENTCHANGE, function(d){
     const ret = merger(
             conf.ds, 
             d.d, 
-            {skipSubscribers: new Set([subscribe])
-    });
+            {
+                skipSubscribers : new Set([subscribe]),
+                strategy        : MERGER_STRATEGIES.LOCAL
+            }
+    );
     console.log(this.availableDataStructs[d.s].immutable.toJSON());
     return ret;
 });
