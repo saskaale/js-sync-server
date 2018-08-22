@@ -33,20 +33,24 @@ class WSConnection{
   }
   request(t, request = {}, ds = undefined){
     request.t = t;
-    if(!request.k) request.k = uuidv1();
+    if(ds !== undefined){
+      request = {s: ds+"" , d:request};
+    }
+    let uniqk = request.k = request.k || uuidv1();
 
     return new Promise((resolve, reject) => {
-      this._requests.set(request.k, {resolve, reject});
+      this._requests.set(uniqk, {resolve, reject});
       try{
         this.sendRaw(request);
       }catch(e){
-        this._requests.delete(request.k);
+        this._requests.delete(uniqk);
         reject();
       }
     });
   }
   onMessage(msg){
     console.log('receive '+JSON.stringify(msg));
+
     let response = {};
     if(msg.k)
       response.k = msg.k;
@@ -75,7 +79,7 @@ class WSConnection{
       response.err = "Unknown request >>"+msg.k+"<<";
     }
 
-    if(response){
+    if(response && !msg.err){
       this._send(response);
     }
   }

@@ -2,6 +2,12 @@ import WSConnection from './wsconnection';
 import {REQUEST_LOADALL, REQUEST_LIST, REQUEST_SERVERCHANGE, REQUEST_CLIENTCHANGE} from './constants';
 import DataStruct, {merger, MERGER_STRATEGIES} from '../../js-transaction-object';
 
+let datastruct = new DataStruct({
+    Task: {},
+    SubTask: {},
+    SubSubTask: {}
+});
+
 class ClientConnection extends WSConnection{
     constructor(...args){
         super(...args);
@@ -15,8 +21,11 @@ class ClientConnection extends WSConnection{
 
         this.availableDataStructs = {
           [null]: {
-                    ds  :   this._configds,
+                    getData  : () => this._configds,
                     readonly: true
+          },
+          'data': {
+                    getData  :   () => datastruct
           }
         };
         this.listeningDs = {};
@@ -49,7 +58,7 @@ class ClientConnection extends WSConnection{
                 console.log(e);
             });
         };
-        unsubscribe = this.availableDataStructs[k].ds.subscribe(subscribe);
+        unsubscribe = this.availableDataStructs[k].getData().subscribe(subscribe);
 
         this.listeningDs[k] = {subscribe, unsubscribe};
     }
@@ -75,7 +84,8 @@ ClientConnection.registerRequest(REQUEST_LOADALL, function(d){
     if(!this.availableDataStructs[d.s])
       throw new Error(`unknown datastruct >>${d.s}<<`);
     this.subscribeTo(d.s);
-    return this.availableDataStructs[d.s].ds.toJS();
+
+    return this.availableDataStructs[d.s].getData().toJS();
 });
 
 ClientConnection.registerRequest(REQUEST_CLIENTCHANGE, function(d){
@@ -84,16 +94,18 @@ ClientConnection.registerRequest(REQUEST_CLIENTCHANGE, function(d){
     if(conf.readonly)
         throw new Error('datastruct '+d.s+' is readonly');
 
+    let datastruct = conf.getData();
+
     const subscribe = this.listeningDs[d.s].subscribe;
     const ret = merger(
-            conf.ds, 
+            datastruct, 
             d.d, 
             {
                 skipSubscribers : new Set([subscribe]),
                 strategy        : MERGER_STRATEGIES.LOCAL
             }
     );
-    console.log(this.availableDataStructs[d.s].immutable.toJSON());
+//    console.log(this.availableDataStructs[d.s].immutable.toJSON());
     return ret;
 });
 
